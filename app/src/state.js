@@ -1,127 +1,79 @@
-/* Cover state: one plain object the whole app reads, plus undo/redo history.
-   Photos live in a separate map (id -> { name, dataUrl, image }) so history
-   snapshots stay small; a snapshot only records which photo sits in which panel. */
+// Vice City Cover Studio — cover state and undo history.
+// A panel holds one photo (a local file or a bundled sample, never
+// uploaded anywhere) plus its crop: zoom and a drag offset in fractions
+// of the panel. The whole state is plain JSON, so undo is a snapshot.
 
-export const LAYOUTS = ['hero3', 'grid2', 'full', 'grid9', 'strip'];
-export const GRADES = ['sunset', 'neon', 'palm', 'noir'];
+import { panelCount } from './layouts.js';
 
+/** One empty panel: no photo yet, full-frame crop. */
+export function emptyPanel() {
+  return { photo: null, zoom: 1, ox: 0, oy: 0 };
+}
+
+/** The cover a fresh visitor sees: Hero + 3, Vice Sunset, VICE CITY. */
 export function defaultState() {
   return {
     layout: 'hero3',
     grade: 'sunset',
-    gradeStrength: 0.75,
     title: 'VICE CITY',
     subtitle: 'Neon Nights',
-    showSubtitle: true,
-    titleScale: 1.0,
-    titleY: 0.78,
-    // One slot per panel of the biggest layout (9). Layouts use a prefix of these.
-    panels: Array.from({ length: 9 }, () => ({
-      photoId: null,
-      zoom: 1,
-      offsetX: 0,
-      offsetY: 0,
-    })),
-    selectedPanel: 0,
+    titleSize: 1.0,
+    titleY: 0.94,
+    exportSize: '1080x1080',
+    panels: [emptyPanel(), emptyPanel(), emptyPanel(), emptyPanel()],
+    selected: 0,
   };
 }
 
-/** Deep-copy a state object (photos are referenced by id, never copied). */
+/** Grow or shrink the panel list when the layout changes, keeping photos. */
+export function fitPanels(state) {
+  const want = panelCount(state.layout);
+  while (state.panels.length < want) state.panels.push(emptyPanel());
+  if (state.panels.length > want) state.panels.length = want;
+  if (state.selected >= want) state.selected = 0;
+  return state;
+}
+
+/** A deep copy of a state, for the history stack. */
 export function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
 
-/** A serialisable snapshot for undo/redo. */
-export function snapshotState(state) {
-  return JSON.stringify(state);
+/** Undo/redo history: a stack of past states and a stack of undone ones. */
+export function createHistory(limit = 60) {
+  return { past: [], future: [], limit };
 }
 
-export function restoreState(json) {
-  const parsed = JSON.parse(json);
-  const fresh = defaultState();
-  return { ...fresh, ...parsed, panels: parsed.panels ?? fresh.panels };
+/** Push the current state before a change, clearing the redo stack. */
+export function historyPush(history, state) {
+  history.past.push(cloneState(state));
+  if (history.past.length > history.limit) history.past.shift();
+  history.future.length = 0;
 }
 
-/** Undo/redo history over state snapshots. */
-export class CoverHistory {
-  constructor(limit = 60) {
-    this.limit = limit;
-    this.past = [];
-    this.future = [];
-  }
-
-  /** Record the state as it was before a change. */
-  push(json) {
-    this.past.push(json);
-    if (this.past.length > this.limit) this.past.shift();
-    this.future.length = 0;
-  }
-
-  undo(currentJson) {
-    if (this.past.length === 0) return null;
-    this.future.push(currentJson);
-    return this.past.pop();
-  }
-
-  redo(currentJson) {
-    if (this.future.length === 0) return null;
-    this.past.push(currentJson);
-    return this.future.pop();
-  }
-
-  get canUndo() { return this.past.length > 0; }
-  get canRedo() { return this.future.length > 0; }
+/** Step back one change, returning the state to show (or null). */
+export function historyUndo(history, state) {
+  if (history.past.length === 0) return null;
+  history.future.push(cloneState(state));
+  return history.past.pop();
 }
 
-/** In-memory photo store: id -> { id, name, dataUrl, image, width, height }. */
-export class PhotoStore {
-  constructor() {
-    this.photos = new Map();
-    this.counter = 0;
-  }
+/** Step forward one undone change, returning the state (or null). */
+export function historyRedo(history, state) {
+  if (history.future.length === 0) return null;
+  history.past.push(cloneState(state));
+  return history.future.pop();
+}
 
-  /** Register a loaded image; returns its id. */
-  add(name, dataUrl, image) {
-    const id = `photo-${++this.counter}`;
-    this.photos.set(id, { id, name, dataUrl, image, width: image.naturalWidth, height: image.naturalHeight });
-    return id;
-  }
-
-  get(id) {
-    return this.photos.get(id) ?? null;
-  }
-
-  has(id) {
-    return this.photos.has(id);
-  }
-
-  /** First photo id, or null when the store is empty. */
-  firstId() {
-    const next = this.photos.keys().next();
-    return next.done ? null : next.value;
-  }
-
-  /** Load an image from a URL (a local sample file) and register it. */
-  async loadFromUrl(name, url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`could not load sample ${name}`);
-    const blob = await response.blob();
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error('could not read sample'));
-      reader.readAsDataURL(blob);
-    });
-    return this.loadFromDataUrl(name, dataUrl);
-  }
-
-  /** Load an image from a data: URL and register it. */
-  loadFromDataUrl(name, dataUrl) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(this.add(name, dataUrl, image));
-      image.onerror = () => reject(new Error(`could not read image ${name}`));
-      image.src = dataUrl;
-    });
+/** Load a saved state (from localStorage), or the default when it is stale. */
+export function reviveState(saved) {
+  try {
+    const parsed = JSON.parse(saved);
+    if (!parsed || typeof parsed !== 'object') return defaultState();
+    const state = { ...defaultState(), ...parsed };
+    state.panels = Array.isArray(parsed.panels) ? parsed.panels : defaultState().panels;
+    return fitPanels(state);
+  } catch {
+    return defaultState();
   }
 }

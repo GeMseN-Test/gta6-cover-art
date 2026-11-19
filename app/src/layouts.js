@@ -1,78 +1,82 @@
-/* Cover layouts: where each panel sits, in fractions of the canvas (0..1).
-   The same fractions scale to any export size, so a cover looks the same at
-   1080x1080, 1080x1350 and 1920x1080. A panel is { x, y, w, h, rotate }.
-   rotate is in degrees and only the snapshot strip uses it. */
+// Vice City Cover Studio — cover layouts.
+// Every layout is a list of panels as normalized rects (fractions of the
+// cover's width and height), so a cover looks the same at 1080x1080,
+// 1080x1350 and 1920x1080. A panel may carry a tilt in degrees for the
+// snapshot-strip layout. The title band is drawn over the sky backdrop
+// below the panels, never inside a photo.
 
-const GAP = 0.012; // white gap between panels, as a fraction of the short side
-
-function grid(rows, cols, top = 0, height = 1) {
-  const panels = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      panels.push({
-        x: (c / cols) + GAP / 2,
-        y: top + (r / rows) * height + GAP / 2,
-        w: 1 / cols - GAP,
-        h: height / rows - GAP,
-        rotate: 0,
-      });
-    }
-  }
-  return panels;
-}
-
-export const LAYOUT_DEFS = {
-  // One big hero photo on top, three small panels along the bottom.
-  hero3: [
-    { x: 0, y: 0, w: 1, h: 0.6, rotate: 0 },
-    { x: 0, y: 0.6 + GAP / 2, w: 1 / 3 - GAP, h: 0.4 - GAP, rotate: 0 },
-    { x: 1 / 3 + GAP / 2, y: 0.6 + GAP / 2, w: 1 / 3 - GAP, h: 0.4 - GAP, rotate: 0 },
-    { x: 2 / 3 + GAP / 2, y: 0.6 + GAP / 2, w: 1 / 3 - GAP, h: 0.4 - GAP, rotate: 0 },
-  ],
-  // Four equal panels.
-  grid2: grid(2, 2),
-  // One photo fills the whole cover; the caption sits on top of it.
-  full: [{ x: 0, y: 0, w: 1, h: 1, rotate: 0 }],
-  // Nine equal panels, a contact-sheet poster.
-  grid9: grid(3, 3),
-  // Five tilted snapshots fanned across a gradient sky, like photos on a wall.
-  strip: [
-    { x: 0.03, y: 0.10, w: 0.30, h: 0.52, rotate: -7 },
-    { x: 0.21, y: 0.05, w: 0.30, h: 0.52, rotate: -2 },
-    { x: 0.40, y: 0.03, w: 0.30, h: 0.52, rotate: 2 },
-    { x: 0.58, y: 0.05, w: 0.30, h: 0.52, rotate: 6 },
-    { x: 0.72, y: 0.12, w: 0.26, h: 0.48, rotate: 9 },
-  ],
+export const LAYOUTS = {
+  hero3: {
+    name: 'Hero + 3',
+    blurb: 'One big hero shot, three moments underneath.',
+    panels: [
+      { x: 0.035, y: 0.035, w: 0.93, h: 0.52 },
+      { x: 0.035, y: 0.595, w: 0.295, h: 0.27 },
+      { x: 0.3525, y: 0.595, w: 0.295, h: 0.27 },
+      { x: 0.67, y: 0.595, w: 0.295, h: 0.27 },
+    ],
+  },
+  grid2: {
+    name: '2 x 2 Grid',
+    blurb: 'Four equal frames, classic poster grid.',
+    panels: [
+      { x: 0.035, y: 0.035, w: 0.455, h: 0.40 },
+      { x: 0.51, y: 0.035, w: 0.455, h: 0.40 },
+      { x: 0.035, y: 0.455, w: 0.455, h: 0.40 },
+      { x: 0.51, y: 0.455, w: 0.455, h: 0.40 },
+    ],
+  },
+  fullbleed: {
+    name: 'Full Bleed',
+    blurb: 'One photo edge to edge, title over the sky.',
+    panels: [
+      { x: 0.0, y: 0.0, w: 1.0, h: 1.0 },
+    ],
+  },
+  grid9: {
+    name: '9-Panel Grid',
+    blurb: 'A contact sheet of nine moments.',
+    panels: [
+      { x: 0.03, y: 0.03, w: 0.30, h: 0.27 },
+      { x: 0.35, y: 0.03, w: 0.30, h: 0.27 },
+      { x: 0.67, y: 0.03, w: 0.30, h: 0.27 },
+      { x: 0.03, y: 0.32, w: 0.30, h: 0.27 },
+      { x: 0.35, y: 0.32, w: 0.30, h: 0.27 },
+      { x: 0.67, y: 0.32, w: 0.30, h: 0.27 },
+      { x: 0.03, y: 0.61, w: 0.30, h: 0.24 },
+      { x: 0.35, y: 0.61, w: 0.30, h: 0.24 },
+      { x: 0.67, y: 0.61, w: 0.30, h: 0.24 },
+    ],
+  },
+  strip: {
+    name: 'Snapshot Strip',
+    blurb: 'Tilted polaroids scattered on the sunset.',
+    panels: [
+      { x: 0.05, y: 0.10, w: 0.40, h: 0.34, tilt: -4 },
+      { x: 0.55, y: 0.06, w: 0.40, h: 0.34, tilt: 3 },
+      { x: 0.08, y: 0.50, w: 0.40, h: 0.34, tilt: 2.5 },
+      { x: 0.52, y: 0.46, w: 0.40, h: 0.34, tilt: -3 },
+    ],
+  },
 };
 
-/** Panel rects for a layout, in fractions of the canvas. */
-export function panelsForLayout(layout) {
-  return LAYOUT_DEFS[layout] ?? LAYOUT_DEFS.hero3;
+/** The layout ids, in the order the picker shows them. */
+export const LAYOUT_ORDER = ['hero3', 'grid2', 'fullbleed', 'grid9', 'strip'];
+
+/** How many photo panels a layout holds. */
+export function panelCount(layoutId) {
+  const layout = LAYOUTS[layoutId] ?? LAYOUTS.hero3;
+  return layout.panels.length;
 }
 
-/** How many panels a layout shows. */
-export function panelCountForLayout(layout) {
-  return panelsForLayout(layout).length;
-}
-
-/** Panel rects in pixels for a canvas of width w and height h. */
-export function panelRectsPx(layout, w, h) {
-  return panelsForLayout(layout).map((p) => ({
-    x: p.x * w,
-    y: p.y * h,
-    w: p.w * w,
-    h: p.h * h,
-    rotate: p.rotate,
+/** A layout's panel rects as pixel rects on a canvas of W by H. */
+export function layoutRects(layoutId, W, H) {
+  const layout = LAYOUTS[layoutId] ?? LAYOUTS.hero3;
+  return layout.panels.map((p) => ({
+    x: p.x * W,
+    y: p.y * H,
+    w: p.w * W,
+    h: p.h * H,
+    tilt: p.tilt ?? 0,
   }));
-}
-
-/** Which panel (if any) contains point (px, py) on a canvas of w x h. */
-export function panelAtPoint(layout, w, h, px, py) {
-  const rects = panelRectsPx(layout, w, h);
-  // Later panels are drawn on top, so test them first.
-  for (let i = rects.length - 1; i >= 0; i--) {
-    const r = rects[i];
-    if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
-  }
-  return -1;
 }
