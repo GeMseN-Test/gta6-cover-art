@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vice City Cover Studio — GTA 6-style cover art maker</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="topbar" id="topbar">
+  <div class="brand">
+    <span class="brand-mark">VC</span>
+    <span class="brand-name">Vice City Cover Studio</span>
+    <span class="brand-tag">make your own GTA 6-style cover</span>
+  </div>
+  <div class="top-actions">
+    <button id="btn-undo" class="btn ghost" type="button" title="Undo">↩ Undo</button>
+    <button id="btn-redo" class="btn ghost" type="button" title="Redo">↪ Redo</button>
+    <button id="btn-random" class="btn ghost" type="button" title="Shuffle layout + grade">🎲 Surprise me</button>
+  </div>
+</header>
+
+<main class="workspace">
+  <section class="stage-wrap">
+    <div class="stage-toolbar" id="stage-toolbar">
+      <span class="stage-hint">Click a panel to select it · drag the photo inside to move it · scroll on a panel to zoom</span>
+      <span class="stage-size" id="stage-size">1080 × 1080</span>
+    </div>
+    <div class="stage">
+      <canvas id="cover-canvas" width="1080" height="1080" aria-label="Cover art preview"></canvas>
+      <div class="stage-empty" id="stage-empty">
+        <p class="empty-big">Drop a photo here</p>
+        <p class="empty-small">or pick a sample below — your photo never leaves this machine</p>
+        <button id="btn-empty-upload" class="btn primary" type="button">Choose a photo</button>
+      </div>
+    </div>
+    <div class="samples" id="samples">
+      <span class="samples-label">Try a sample photo:</span>
+      <button class="sample-btn" type="button" data-sample="samples/boulevard.jpg">
+        <img src="samples/boulevard.jpg" alt="Sample: Ocean Drive boulevard at sunset">
+        <span>Boulevard</span>
+      </button>
+      <button class="sample-btn" type="button" data-sample="samples/pier.jpg">
+        <img src="samples/pier.jpg" alt="Sample: pier at dusk">
+        <span>Pier</span>
+      </button>
+      <button class="sample-btn sample-upload" type="button" id="btn-upload-photo">
+        <span class="upload-plus">＋</span>
+        <span>Your photo</span>
+      </button>
+      <input type="file" id="file-input" accept="image/*" hidden>
+    </div>
+  </section>
+
+  <aside class="panel" id="editor-panel">
+    <section class="group">
+      <h2>Layout</h2>
+      <div class="layout-grid" id="layout-grid" role="radiogroup" aria-label="Cover layout">
+        <button type="button" class="layout-btn is-active" data-layout="hero3" aria-label="Hero plus three panels">
+          <span class="thumb thumb-hero3"></span><span>Hero + 3</span>
+        </button>
+        <button type="button" class="layout-btn" data-layout="grid2" aria-label="Two by two grid">
+          <span class="thumb thumb-grid2"></span><span>2 × 2 grid</span>
+        </button>
+        <button type="button" class="layout-btn" data-layout="full" aria-label="Full bleed photo">
+          <span class="thumb thumb-full"></span><span>Full bleed</span>
+        </button>
+        <button type="button" class="layout-btn" data-layout="grid9" aria-label="Nine panel grid">
+          <span class="thumb thumb-grid9"></span><span>9 panels</span>
+        </button>
+        <button type="button" class="layout-btn" data-layout="strip" aria-label="Tilted snapshot strip">
+          <span class="thumb thumb-strip"></span><span>Snapshot strip</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Colour grade</h2>
+      <div class="grade-row" id="grade-row" role="radiogroup" aria-label="Colour grade">
+        <button type="button" class="grade-btn is-active" data-grade="sunset">
+          <span class="swatch sw-sunset"></span><span>Vice Sunset</span>
+        </button>
+        <button type="button" class="grade-btn" data-grade="neon">
+          <span class="swatch sw-neon"></span><span>Neon Night</span>
+        </button>
+        <button type="button" class="grade-btn" data-grade="palm">
+          <span class="swatch sw-palm"></span><span>Palm Gold</span>
+        </button>
+        <button type="button" class="grade-btn" data-grade="noir">
+          <span class="swatch sw-noir"></span><span>Mono Noir</span>
+        </button>
+      </div>
+      <label class="slider-row">
+        <span>Grade strength</span>
+        <input type="range" id="grade-strength" min="0" max="100" value="75">
+        <output id="grade-strength-out">75%</output>
+      </label>
+    </section>
+
+    <section class="group">
+      <h2>Caption</h2>
+      <label class="field">
+        <span>Big title</span>
+        <input type="text" id="title-input" value="VICE CITY" maxlength="24" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Neon subtitle</span>
+        <input type="text" id="subtitle-input" value="Neon Nights" maxlength="32" autocomplete="off">
+      </label>
+      <label class="slider-row">
+        <span>Title size</span>
+        <input type="range" id="title-size" min="50" max="160" value="100">
+        <output id="title-size-out">100%</output>
+      </label>
+      <label class="slider-row">
+        <span>Title height</span>
+        <input type="range" id="title-y" min="40" max="95" value="78">
+        <output id="title-y-out">78%</output>
+      </label>
+      <label class="check-row">
+        <input type="checkbox" id="subtitle-toggle" checked>
+        <span>Show neon subtitle</span>
+      </label>
+    </section>
+
+    <section class="group">
+      <h2>Selected panel</h2>
+      <p class="panel-note" id="panel-note">Click a panel on the cover to edit its photo.</p>
+      <div class="panel-controls" id="panel-controls" hidden>
+        <label class="slider-row">
+          <span>Zoom</span>
+          <input type="range" id="panel-zoom" min="100" max="300" value="100">
+          <output id="panel-zoom-out">100%</output>
+        </label>
+        <div class="panel-buttons">
+          <button type="button" class="btn" id="btn-panel-upload">Replace photo</button>
+          <button type="button" class="btn" id="btn-panel-fill">Fill all panels</button>
+          <button type="button" class="btn danger" id="btn-panel-remove">Remove photo</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="group export-group">
+      <h2>Export PNG</h2>
+      <p class="export-note">One click, saved straight to your downloads.</p>
+      <div class="export-grid">
+        <button type="button" class="btn primary" data-export="1080x1080">Square<br><b>1080 × 1080</b></button>
+        <button type="button" class="btn primary" data-export="1080x1350">Portrait<br><b>1080 × 1350</b></button>
+        <button type="button" class="btn primary" data-export="1920x1080">Wide<br><b>1920 × 1080</b></button>
+      </div>
+      <button type="button" class="btn accent wide" id="btn-export-all">Export all three sizes</button>
+      <p class="export-status" id="export-status" role="status"></p>
+    </section>
+
+    <p class="fineprint">100% offline — photos are read on your machine and never uploaded.
+    An original fan-made tool. Not affiliated with Rockstar Games.</p>
+  </aside>
+</main>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
